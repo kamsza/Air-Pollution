@@ -1,74 +1,81 @@
 %%%-------------------------------------------------------------------
-%%% @author kamsz
+%%% @author kamsza
 %%% @copyright (C) 2019, <COMPANY>
 %%% @doc
 %%%
 %%% @end
-%%% Created : 16. kwi 2019 14:39
+%%% Created : 24. kwi 2019 13:56
 %%%-------------------------------------------------------------------
 -module(pollution_server).
--author("kamsz").
+-author("kamsza").
 
 %% API
--export([start/0, stop/0, init/0, loop/1, addStation/2, addValue/4, removeValue/3, getOneValue/3, getDailyMean/3, getStationMean/2, quit/0]).
+-behaviour(gen_server).
+-compile(export_all).
 
-start() ->
-  register(server, spawn(?MODULE, init, [])).
+start_link() ->
+  gen_server:start_link({local, ?MODULE}, ?MODULE, pollution:createMonitor(),[]).
 
-init() ->
-  Monitor = pollution:createMonitor(),
-  loop(Monitor).
-
-stop() ->
-  server ! {request, self(), stop}.
+init(InitialValue) ->
+  {ok, InitialValue}.
 
 
-loop(Monitor) ->
-  receive
-    {request, Pid, {addStation, Name, {X, Y}}} ->
-      NewMonitor = pollution:addStation(Name, {X,Y}, Monitor),
-      loop(NewMonitor),
-      Pid ! {reply, ok};
-    {request, Pid, {addValue, Id, Date, Type, Value}} ->
-      NewMonitor = pollution:addValue(Id, Date, Type, Value, Monitor),
-      loop(NewMonitor),
-      Pid ! {reply, ok};
-    {request, Pid, {removeValue, Id, Date, Type}} ->
-      NewMonitor = pollution:addValue(Id, Date, Type, Monitor),
-      loop(NewMonitor),
-      Pid ! {reply, ok};
-    {request, Pid, {getOneValue, Id, Date, Type}} ->
-      NewMonitor = pollution:getOneValue(Id, Date, Type, Monitor),
-      loop(NewMonitor),
-      Pid ! {reply, ok};
-    {request, Pid, {getStationMean, Id, Type}} ->
-      NewMonitor = pollution:getStationMean(Id, Type, Monitor),
-      loop(NewMonitor),
-      Pid ! {reply, ok};
-    {request, Pid, {getDailyMean, Id, Type, Date}} ->
-      NewMonitor = pollution:getDailyMean(Id, Type, Date, Monitor),
-      loop(NewMonitor),
-      Pid ! {reply, ok};
-    {request, Pid, {quit}} ->
-      Pid ! {reply, ok}
-  end.
+%% user interface
+addStation(Name, {X, Y}) -> gen_server:call(?MODULE, {addStation, Name, {X,Y}}).
+addValue(Id, Date, Type, Value) -> gen_server:call(?MODULE, {addValue, Id, Date, Type, Value}).
+removeValue(Id, Date, Type) -> gen_server:call(?MODULE, {removeValue, Id, Date, Type}).
+getOneValue(Id, Date, Type) -> gen_server:call(?MODULE, {getOneValue, Id, Date, Type}).
+getStationMean(Id, Type) -> gen_server:call(?MODULE, {getStationMean, Id, Type}).
+getDailyMean(Type, Date) -> gen_server:call(?MODULE, {getDailyMean, Type, Date}).
+getDailyAverageDataCount(Date) -> gen_server:call(?MODULE, {getDailyAverageDataCount, Date}).
+stop() -> gen_server:call(?MODULE, {stop}).
+crash() -> gen_server:cast(?MODULE, {crash}).
 
 
+%% callbacks
+handle_call({addStation, Name, {X,Y}}, _From, Monitor) ->
+  case pollution:addStation(Name, {X,Y}, Monitor) of
+    {error, Msg} -> {reply, {error, Msg}, Monitor};
+    NewMonitor ->   {reply, ok, NewMonitor}
+  end;
 
-%%% CLIENT %%%
+handle_call({addValue, Id, Date, Type, Value}, _From, Monitor) ->
+  case pollution:addValue(Id, Date, Type, Value, Monitor) of
+    {error, Msg} -> {reply, {error, Msg}, Monitor};
+    NewMonitor ->   {reply, ok, NewMonitor}
+  end;
 
-call(Message) ->
-  server ! {request, self(), Message},
-  receive
-    {reply, Reply} -> Reply
-  after
-    10000 -> io:format("Did not received any data")
-  end.
+handle_call({removeValue, Id, Date, Type}, _From, Monitor) ->
+  case pollution:removeValue(Id, Date, Type, Monitor) of
+    {error, Msg} -> {reply, {error, Msg}, Monitor};
+    NewMonitor ->   {reply, ok, NewMonitor}
+  end;
 
-addStation(Name, {X, Y}) -> call({addStation, Name, {X,Y}}).
-addValue(Id, Date, Type, Value) -> call({addValue, Id, Date, Type, Value}).
-removeValue(Id, Date, Type) -> call({removeValue, Id, Date, Type}).
-getOneValue(Id, Date, Type) -> call({getOneValue, Id, Date, Type}).
-getStationMean(Id, Type) -> call({getStationMean, Id, Type}).
-getDailyMean(Id, Type, Date) -> call({getDailyMean, Id, Type, Date}).
-quit() -> call({quit}).
+handle_call({getOneValue, Id, Date, Type}, _From, Monitor) ->
+  case pollution:getOneValue(Id, Date, Type, Monitor) of
+    {error, Msg} -> {reply, {error, Msg}, Monitor};
+    Value ->   {reply, Value, Monitor}
+  end;
+
+handle_call({getStationMean, Id, Type}, _From, Monitor) ->
+  case pollution:getStationMean(Id, Type, Monitor) of
+    {error, Msg} -> {reply, {error, Msg}, Monitor};
+    Value ->   {reply, Value, Monitor}
+  end;
+
+handle_call({getDailyMean, Type, Date}, _From, Monitor) ->
+  {reply, pollution:getDailyMean(Type, Date, Monitor), Monitor};
+
+handle_call({getDailyAverageDataCount, Date}, _From, Monitor) ->
+  {reply, pollution:getDailyAverageDataCount(Date, Monitor), Monitor};
+
+handle_call({stop}, _From, _Monitor) ->
+  {stop, normal, shutdown_ok, _Monitor}.
+
+terminate(_Reason, _Value) ->
+  ok.
+
+handle_cast({crash}, Monitor) ->
+  1/0,
+  {noreply, Monitor}.
+

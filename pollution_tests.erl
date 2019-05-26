@@ -27,9 +27,9 @@ addStation_test() ->
   ?assertEqual({monitor,#{"Stacja1" => {station,"Stacja1",{0,0}}},
     #{{0,0} => {station,"Stacja1",{0,0}}},
     #{{station,"Stacja1",{0,0}} => []}}, P1),
-  ?assertEqual("Similar station already exists",P2),
-  ?assertEqual("Similar station already exists",P3),
-  ?assertEqual("Similar station already exists",P4),
+  ?assertEqual({error, "Similar station already exists"},P2),
+  ?assertEqual({error, "Similar station already exists"},P3),
+  ?assertEqual({error, "Similar station already exists"},P4),
   ?assertEqual({monitor,#{"Stacja1" => {station,"Stacja1",{0,0}},
     "Stacja2" => {station,"Stacja2",{1,1}}},
     #{{0,0} => {station,"Stacja1",{0,0}},
@@ -47,25 +47,25 @@ addValue_test() ->
   P6 = pollution:addValue({0,0},{{2018,05,02},{15,21,12}},"PM2.5", 1200,P4),
   P7 = pollution:addValue("Stacja1",{{2018,05,02},{15,20,12}},"PM2.5", 80,P4),
   ?assertEqual({monitor,#{"Stacja" => {station,"Stacja",{0,0}}},
-                        #{{0,0} => {station,"Stacja",{0,0}}},
-                        #{{station,"Stacja",{0,0}} => []}}, P1),
+    #{{0,0} => {station,"Stacja",{0,0}}},
+    #{{station,"Stacja",{0,0}} => []}}, P1),
   ?assertEqual({monitor,#{"Stacja" => {station,"Stacja",{0,0}}},
-                        #{{0,0} => {station,"Stacja",{0,0}}},
-                        #{{station,"Stacja",{0,0}} =>
-                            [{measurement,{{2018,5,1},{15,20,12}},"PM10",70}]}}, P2),
+    #{{0,0} => {station,"Stacja",{0,0}}},
+    #{{station,"Stacja",{0,0}} =>
+    [{measurement,{{2018,5,1},{15,20,12}},"PM10",70}]}}, P2),
   ?assertEqual({monitor,#{"Stacja" => {station,"Stacja",{0,0}}},
-                        #{{0,0} => {station,"Stacja",{0,0}}},
-                        #{{station,"Stacja",{0,0}} =>
-                            [{measurement,{{2018,5,2},{15,20,12}},"PM10",100},{measurement,{{2018,5,1},{15,20,12}},"PM10",70}]}}, P3),
+    #{{0,0} => {station,"Stacja",{0,0}}},
+    #{{station,"Stacja",{0,0}} =>
+    [{measurement,{{2018,5,2},{15,20,12}},"PM10",100},{measurement,{{2018,5,1},{15,20,12}},"PM10",70}]}}, P3),
   ?assertEqual({monitor,#{"Stacja" => {station,"Stacja",{0,0}}},
-                        #{{0,0} => {station,"Stacja",{0,0}}},
-                        #{{station,"Stacja",{0,0}} =>
-                            [{measurement,{{2018,5,2},{15,21,12}},"PM2.5",80},
-                              {measurement,{{2018,5,2},{15,20,12}},"PM10",100},
-                              {measurement,{{2018,5,1},{15,20,12}},"PM10",70}]}}, P4),
-  ?assertEqual("Measurement with given data is already assigned to this station", P5),
-  ?assertEqual("Measurement with given data is already assigned to this station", P6),
-  ?assertEqual("Station don't exists", P7).
+    #{{0,0} => {station,"Stacja",{0,0}}},
+    #{{station,"Stacja",{0,0}} =>
+    [{measurement,{{2018,5,2},{15,21,12}},"PM2.5",80},
+      {measurement,{{2018,5,2},{15,20,12}},"PM10",100},
+      {measurement,{{2018,5,1},{15,20,12}},"PM10",70}]}}, P4),
+  ?assertEqual({error, "Measurement with given data is already assigned to this station"}, P5),
+  ?assertEqual({error, "Measurement with given data is already assigned to this station"}, P6),
+  ?assertEqual({error, "Station don't exists"}, P7).
 
 removeValue_test() ->
   P = pollution:createMonitor(),
@@ -84,7 +84,7 @@ removeValue_test() ->
   P13 = pollution:removeValue("Stacja2", {2018,05,02},"PM10", P12),
   ?assertEqual(P6, P2),
   ?assertEqual(P8, P2),
-  ?assertEqual("Station don't exists", P7),
+  ?assertEqual({error, "Station don't exists"}, P7),
   ?assertEqual(P13, P10).
 
 
@@ -93,8 +93,8 @@ getOneValue_test() ->
   P2 = pollution:addStation( "Stacja1", {52, 32}, P1),
   P3= pollution:addValue( "Stacja1", {{2018,5,4},{21,22,39}}, "PM2,5", 10.0 , P2),
   ?assertEqual("Value not found", pollution:getOneValue("Stacja1", {{2024,5,4},{21,22,39}}, "PM2,5", P3)),
-  ?assertEqual("Station don't exists", pollution:getOneValue({1,1}, {{2018,5,4},{21,22,39}}, "PM2,5", P3)),
-  ?assertEqual(10.0,pollution:getOneValue("Stacja1",{{2018,5,4},{21,22,39}}, "PM2,5",P3)).
+  ?assertEqual({error, "Station don't exists"}, pollution:getOneValue({1,1}, {{2018,5,4},{21,22,39}}, "PM2,5", P3)),
+  ?assertEqual(10.0,pollution:getOneValue("Stacja1",{2018,5,4}, "PM2,5",P3)).
 
 getStationMean_test() ->
   P = pollution:createMonitor(),
@@ -109,7 +109,7 @@ getStationMean_test() ->
   ?assertEqual(2.0, pollution:getStationMean("Stacja druga", "PM10",P7)),
   ?assertEqual(0, pollution:getStationMean("Stacja druga", "PM2,5",P7)),
   ?assertEqual(0, pollution:getStationMean("Stacja trzecia", "PM10",P7)),
-  ?assertEqual("Station don't exists", pollution:getStationMean("Stacja czwarta", "PM10",P7)).
+  ?assertEqual({error, "Station don't exists"}, pollution:getStationMean("Stacja czwarta", "PM10",P7)).
 
 getDailyMean_test() ->
   P = pollution:createMonitor(),
